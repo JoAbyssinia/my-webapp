@@ -32,7 +32,7 @@ A Python web application that uses your webcam to track hand gestures and displa
 ## 📁 Project Structure
 
 ```
-my-webapp/
+gesture_recognition/
 ├── app.py                  # Main Flask application
 ├── gesture_recognition.py  # Gesture detection logic
 ├── templates/
@@ -55,7 +55,7 @@ my-webapp/
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/JoAbyssinia/my-webapp.git
+   git clone https://github.com/JoAbyssinia/gesture_recognition.git
    cd my-webapp
    ```
 
