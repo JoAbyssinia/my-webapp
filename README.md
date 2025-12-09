@@ -56,7 +56,7 @@ gesture_recognition/
 1. **Clone the repository**
    ```bash
    git clone https://github.com/JoAbyssinia/gesture_recognition.git
-   cd my-webapp
+   cd gesture_recognition
    ```
 
 2. **Create a virtual environment (recommended)**

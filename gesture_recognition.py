@@ -1,17 +1,17 @@
 import mediapipe as mp
 import numpy as np
+import time
+import threading
 
 class GestureRecognizer:
     def __init__(self):
         self.mp_hands = mp.solutions.hands
-        self.hands = self.mp_hands.Hands(
-            static_image_mode=False,
-            max_num_hands=1,
-            min_detection_confidence=0.7,
-            min_tracking_confidence=0.5
-        )
         self.mp_draw = mp.solutions.drawing_utils
-        
+        self.hands = None
+        self.last_process_time = 0
+        self.frame_delay = 0.03  # ~30 FPS
+        self.lock = threading.Lock()
+
         # Emoji mappings for gestures
         self.gesture_emojis = {
             'thumbs_up': '👍',
@@ -25,7 +25,17 @@ class GestureRecognizer:
             'pinky_up': '🤙',
             'none': '🤔'
         }
-    
+        self._initialize_hands()
+
+    def _initialize_hands(self):
+        """Initialize the MediaPipe Hands detector"""
+        self.hands = self.mp_hands.Hands(
+            static_image_mode=False,
+            max_num_hands=1,
+            min_detection_confidence=0.7,
+            min_tracking_confidence=0.5
+        )
+
     def get_finger_states(self, hand_landmarks):
         """
         Determine which fingers are extended.
@@ -148,29 +158,49 @@ class GestureRecognizer:
         Process a frame and return results.
         Returns: (processed_frame, gesture_name, emoji)
         """
+        # Throttle frames to prevent timestamp issues
+        current_time = time.time()
+        time_since_last = current_time - self.last_process_time
+        if time_since_last < self.frame_delay:
+            time.sleep(self.frame_delay - time_since_last)
+
+        self.last_process_time = time.time()
+
         # Convert BGR to RGB
         rgb_frame = frame[:, :, ::-1]
         
-        # Process the frame
-        results = self.hands.process(rgb_frame)
-        
         gesture_name = 'none'
         emoji = self.gesture_emojis['none']
-        
-        if results.multi_hand_landmarks:
-            for hand_landmarks in results.multi_hand_landmarks:
-                # Draw hand landmarks
-                self.mp_draw.draw_landmarks(
-                    frame, 
-                    hand_landmarks, 
-                    self.mp_hands.HAND_CONNECTIONS
-                )
-                
-                # Recognize gesture
-                gesture_name, emoji = self.recognize_gesture(hand_landmarks)
-        
+
+        try:
+            with self.lock:
+                # Process the frame
+                results = self.hands.process(rgb_frame)
+
+                if results.multi_hand_landmarks:
+                    for hand_landmarks in results.multi_hand_landmarks:
+                        # Draw hand landmarks
+                        self.mp_draw.draw_landmarks(
+                            frame,
+                            hand_landmarks,
+                            self.mp_hands.HAND_CONNECTIONS
+                        )
+
+                        # Recognize gesture
+                        gesture_name, emoji = self.recognize_gesture(hand_landmarks)
+        except ValueError as e:
+            # Handle timestamp mismatch error by reinitializing
+            if "timestamp" in str(e).lower():
+                self.hands.close()
+                self._initialize_hands()
+                # Skip this frame and return default gesture
+                return frame, 'none', self.gesture_emojis['none']
+            else:
+                raise
+
         return frame, gesture_name, emoji
     
     def release(self):
         """Release resources"""
-        self.hands.close()
+        if self.hands:
+            self.hands.close()

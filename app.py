@@ -1,5 +1,6 @@
 from flask import Flask, render_template, Response
 import cv2
+import time
 from gesture_recognition import GestureRecognizer
 
 app = Flask(__name__)
@@ -16,12 +17,23 @@ def generate_frames():
     camera = cv2.VideoCapture(0)
     camera.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
     camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
-    
+    camera.set(cv2.CAP_PROP_FPS, 30)
+
+    frame_delay = 1.0 / 30  # 30 FPS
+    last_frame_time = time.time()
+
     while True:
         success, frame = camera.read()
         if not success:
             break
         
+        # Throttle frames to 30 FPS
+        current_time = time.time()
+        time_elapsed = current_time - last_frame_time
+        if time_elapsed < frame_delay:
+            time.sleep(frame_delay - time_elapsed)
+        last_frame_time = time.time()
+
         # Flip frame horizontally for mirror effect
         frame = cv2.flip(frame, 1)
         
